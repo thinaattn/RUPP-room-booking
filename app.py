@@ -58,7 +58,7 @@ if "bookings" not in st.session_state:
     st.session_state["bookings"] = []
 
 # ---------------------------------------------------------
-# HELPER FUNCTIONS
+# HELPER FUNCTIONS heelp
 # ---------------------------------------------------------
 def get_room_data(room_name):
     for room in ROOMS:
