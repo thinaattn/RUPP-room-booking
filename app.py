@@ -98,6 +98,206 @@ def get_bookings_dataframe():
 
     return pd.DataFrame(st.session_state["bookings"])
 
+# ---------------------------------------------------------
+# show_history function
+# ---------------------------------------------------------
+def show_history():
+
+    st.title("📜 Booking History")
+    st.caption("Review and track previous room booking records.")
+
+    bookings = st.session_state.get("bookings", [])
+
+    # If no bookings exist
+    if not bookings:
+        st.info("No booking records available yet.")
+        return
+
+    # Convert booking list into DataFrame
+    df = pd.DataFrame(bookings)
+
+    # Search filters
+    st.subheader("Search and Filter")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        search_student = st.text_input(
+            "Search Student Name or ID"
+        )
+
+    with col2:
+        status_options = ["All"] + sorted(
+            df["Status"].dropna().unique().tolist()
+        ) if "Status" in df.columns else ["All"]
+
+        selected_status = st.selectbox(
+            "Filter by Status",
+            status_options
+        )
+
+    filtered_df = df.copy()
+
+    # Student search
+    if search_student:
+        search_student = search_student.lower()
+
+        student_name = (
+            filtered_df["Student Name"]
+            .astype(str)
+            .str.lower()
+            if "Student Name" in filtered_df.columns
+            else pd.Series("", index=filtered_df.index)
+        )
+
+        student_id = (
+            filtered_df["Student ID"]
+            .astype(str)
+            .str.lower()
+            if "Student ID" in filtered_df.columns
+            else pd.Series("", index=filtered_df.index)
+        )
+
+        filtered_df = filtered_df[
+            student_name.str.contains(search_student, na=False)
+            | student_id.str.contains(search_student, na=False)
+        ]
+
+    # Status filter
+    if selected_status != "All" and "Status" in filtered_df.columns:
+        filtered_df = filtered_df[
+            filtered_df["Status"] == selected_status
+        ]
+
+    # Display record count
+    st.write(f"Records found: **{len(filtered_df)}**")
+
+    # Display booking records
+    if filtered_df.empty:
+        st.warning("No matching booking records found.")
+
+    else:
+        st.dataframe(
+            filtered_df,
+            use_container_width=True,
+            hide_index=True
+        )
+
+    # Download filtered history
+    if not filtered_df.empty:
+
+        csv = filtered_df.to_csv(index=False).encode("utf-8")
+
+        st.download_button(
+            label="📥 Download Booking History",
+            data=csv,
+            file_name="booking_history.csv",
+            mime="text/csv"
+        )
+
+# ---------------------------------------------------------
+# dashboard function
+# ---------------------------------------------------------
+def show_dashboard():
+
+    st.title("🏠 Room Booking Dashboard")
+    st.caption("Overview of room booking activities.")
+
+    bookings = st.session_state.get("bookings", [])
+
+    df = pd.DataFrame(bookings)
+
+    total_rooms = len(ROOMS)
+    total_bookings = len(bookings)
+
+    active_bookings = sum(
+        b.get("Status") == "Booked"
+        for b in bookings
+    )
+
+    cancelled_bookings = sum(
+        b.get("Status") == "Cancelled"
+        for b in bookings
+    )
+
+    completed_bookings = sum(
+        b.get("Status") == "Completed"
+        for b in bookings
+    )
+
+    # KPI Metrics
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Total Rooms", total_rooms)
+    col2.metric("Total Bookings", total_bookings)
+    col3.metric("Active Bookings", active_bookings)
+    col4.metric("Cancelled", cancelled_bookings)
+
+    st.divider()
+
+    # Booking Status Chart
+    st.subheader("Booking Status Overview")
+
+    if not df.empty and "Status" in df.columns:
+
+        status_counts = df["Status"].value_counts()
+
+        st.bar_chart(status_counts)
+
+    else:
+        st.info("No booking data available for the chart.")
+
+    st.divider()
+
+    # Upcoming Bookings
+    st.subheader("Upcoming Bookings")
+
+    if not df.empty and "Date" in df.columns:
+
+        today = date.today()
+
+        df["Date"] = pd.to_datetime(
+            df["Date"],
+            errors="coerce"
+        )
+
+        upcoming = df[
+            (df["Date"].dt.date >= today)
+            & (df["Status"] == "Booked")
+        ].copy()
+
+        upcoming = upcoming.sort_values("Date")
+
+        if not upcoming.empty:
+
+            st.dataframe(
+                upcoming,
+                use_container_width=True,
+                hide_index=True
+            )
+
+        else:
+            st.info("No upcoming bookings.")
+
+    else:
+        st.info("No booking data available yet.")
+
+    st.divider()
+
+    # Completed Booking Statistics
+    st.subheader("Booking Summary")
+
+    col1, col2 = st.columns(2)
+
+    col1.metric(
+        "Completed Bookings",
+        completed_bookings
+    )
+
+    col2.metric(
+        "Cancelled Bookings",
+        cancelled_bookings
+    )
 
 # ---------------------------------------------------------
 # SIDEBAR NAVIGATION
@@ -107,7 +307,7 @@ with st.sidebar:
     st.caption("University room reservation system")
     selected_page = st.radio(
         "Navigation",
-        ["Home", "Book a Room", "My Bookings", "Room Directory", "About"]
+        ["Home", "Dashboard", "Room Directory","Room Reservation", "Bookings", "About"]
     )
 
 # ---------------------------------------------------------
@@ -150,9 +350,17 @@ if selected_page == "Home":
     )
 
 # ---------------------------------------------------------
+# Dashboard Page    
+# ---------------------------------------------------------
+elif selected_page == "Dashboard":
+    st.title("Dashboard")
+    show_dashboard()
+    show_history()
+
+# ---------------------------------------------------------
 # BOOK A ROOM PAGE
 # ---------------------------------------------------------
-elif selected_page == "Book a Room":
+elif selected_page == "Room Reservation":
     st.title("Book a Room")
     st.write("Complete the form below to request a room reservation.")
 
@@ -242,8 +450,8 @@ elif selected_page == "Book a Room":
 # ---------------------------------------------------------
 # MY BOOKINGS PAGE
 # ---------------------------------------------------------
-elif selected_page == "My Bookings":
-    st.title("My Bookings")
+elif selected_page == "Bookings":
+    st.title("Bookings")
     st.write("View the booking records created during this app session.")
 
     bookings_df = get_bookings_dataframe()
