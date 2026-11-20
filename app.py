@@ -283,6 +283,35 @@ def reserve_room(room_name):
     st.session_state["selected_room_name"] = room_name
     st.session_state["navigation"] = "Book a Room"
 
+def navigate_to(page):
+    st.session_state["navigation"] = page
+
+def is_room_occupied(room_name):
+    current_time = datetime.now()
+
+    for booking in st.session_state["bookings"]:
+
+        if booking["Room"] != room_name:
+            continue
+
+        if booking["Status"] != "Booked":
+            continue
+
+        booking_start = datetime.combine(
+            booking["Date"], booking["Start Time"]
+        )
+
+        booking_end = datetime.combine(
+            booking["Date"], booking["End Time"]
+        )
+
+        if booking_start <= current_time < booking_end:
+            return True
+
+    return False
+
+
+
 # ---------------------------------------------------------
 # SIDEBAR NAVIGATION
 # ---------------------------------------------------------
@@ -348,7 +377,37 @@ if selected_page == "Home":
     with col3:
         with st.container(border=True):
             st.metric("Active bookings", active_bookings)
+    st.divider()
+    st.subheader("Quick actions")
 
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.button(
+            ":material/calendar_add_on: Book a Room",
+            use_container_width=True,
+            type="primary",
+            on_click=navigate_to,
+            args=("Book a Room",)
+        )
+
+    with col2:
+        st.button(
+            ":material/search: Explore Rooms",
+            use_container_width=True,
+            on_click=navigate_to,
+            args=("Room Directory",)
+        )
+
+    with col3:
+        st.button(
+            ":material/bookmark: My Bookings",
+            use_container_width=True,
+            on_click=navigate_to,
+            args=("My Bookings",)
+        )
+
+ 
     st.divider()
     st.subheader("How to use the system")
     st.markdown(
@@ -705,8 +764,21 @@ elif selected_page == "Room Directory":
                         room["Type"], ":material/meeting_room:"
                     )
 
-                    st.header(room_icon)
-                    st.subheader(room["Room"])
+                    icon_col, space_col, status_col = st.columns(
+                        [1, 4, 2],
+                        vertical_alignment="center"
+                    )
+
+                    with icon_col:
+                        st.subheader(room_icon)
+
+                    with status_col:
+                        if is_room_occupied(room["Room"]):
+                            st.markdown(":orange[:material/circle: Occupied now]")
+                        else:
+                            st.markdown(":green[:material/circle: Available now]")
+
+                    st.markdown(f"**{room['Room']}**")
 
                     st.caption(
                         f":material/location_on: {room['Location']}"
