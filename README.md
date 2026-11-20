@@ -17,7 +17,9 @@ Students can use the prototype to view sample rooms, submit bookings, check for 
 ## Project files
 
 ```text
-rupp_room_booking_app/
+RUPP-room-booking/
+├── .streamlit/
+│   └── config.toml
 ├── app.py
 ├── requirements.txt
 └── README.md
